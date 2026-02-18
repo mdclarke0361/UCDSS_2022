@@ -8,14 +8,13 @@ Clone this repo to desired project directory.
 Below is an example command. Create conda environment from environment.yml in main project directory.
 Use desired project name in place of env_name.
 ```bash
-env_name="UASG"
+env_name="UCDSS"
 
 conda env create \
 	--name $env_name \
 	--file environment.yml
 ```
 
-# Alignment to Human Genome
 ## Raw Data QC
 For this project, all raw read files have been organized into separate directories with their associated sample name. The following script will reference the name of each directory as the sample name and use this to group the reads by sample.
 ```bash
@@ -35,7 +34,7 @@ bash 01_source/trim_raw_reads.sh \
     $raw_read_file_dir
 ```
 
-## Alignment to Human Genome
+# Alignment to Human Genome
 Reference genome can be downloaded from NCBI database. To create an indexed genome for STAR to use, download the fasta sequence and GTF annotation file from NCBI.
 
 The reference genome used in this project is GRCh38.p14.
@@ -127,14 +126,14 @@ Rscript 01_source/clean_human_count_data.r \
     $human_annotation_report
 ```
 
-# Alignment to Viral Database
+# Generate Viral Genome Reference Files
 For accurate alignement with a global alignment platform such as STAR aligner, a GTF annotation file should be provided. In a viral database, consisting of multiple viral genomes all concatenated into one sequence file, the annotation file will parse out features from each genome.
 
 Although NCBI hosts the most comprehensive collection of viral genome sequences, the majority of these (with the exception of many segments from influenza isolates) are not part of a complete, and annotated 'NCBI Assembly', therefore it is not currently possible to directly download GTF annotation files for a large collection of viruses.
 
 For this project, viral genomes are collected from the NCBI 'Nucleotide' database, as it is possible to collect both sequence files and GFF3 annotation files from the NCBI server. The annotation files will then be converted to GTF format in the following scripting processes.
 
-## Generate Database
+## Download Sequence and Annotation Files
 Note: The current command-line tool from NCBI which allows downloading of datasets does not support downloading of annotation files for viral genomes in the NCBI nucleotide database. The `datasets download genome` tool currently only accepts genome assemblies, for which there are only a handful of human viruses (mostly influenza segments). The dedicated virus tool, `datasets download virus genome` does not offer annotation files as an option for download. This may change at some point, however a workaround is outlined below: 
 
 NCBI Virus - Find list of 'complete' nucleotides for viruses with a human host.
@@ -226,7 +225,7 @@ epost -db nuccore -input "${accession_list}" \
     > "02_data/testing/herpesviruses_annotation.gff3"
 ```
 
-## Convert GFF3 file
+## Convert GFF3 files
 Run annotation conversion script to convert the GFF3 format to GTF2.2 (see http://mblab.wustl.edu/GTF22.html).
 In addition, handle the annotation of circular genomes which have features that overrun the length of the linearly-represented geneome sequence.
 ```bash
@@ -259,7 +258,7 @@ bash 01_source/index_viral_ref.sh \
     "${index_dir}"
 ```
 
-## Alignment to Viral Genomes
+# Alignment to Viral Genomes
 
 ```bash
 unaligned_read_file_dir="02_data/processed/unaligned"
