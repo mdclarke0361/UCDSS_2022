@@ -5,14 +5,6 @@ pdf(NULL)
 # Initialize the R env, get path variables for output.
 source("01_source/initialize_script.r")
 
-print(project_dir)
-
-# Get logfile name
-log_file <- assign_log_filename()
-
-# Redirect output to the file and also keep it on the console
-sink(file = log_file, split = TRUE)
-
 #
 suppressPackageStartupMessages({
   library(tidyverse)
@@ -25,17 +17,17 @@ conflicts_prefer(base::setdiff)
 
 # Read arguments
 args <- commandArgs(trailingOnly = TRUE)
-human_gene_counts_file <- file.path(project_dir, args[1])
-human_annotation_report <- file.path(project_dir, args[2])
+human_gene_counts_file <- file.path(PROJECT_DIR, args[1])
+human_annotation_report <- file.path(PROJECT_DIR, args[2])
 
 # Assign name to output files
-cleaned_human_gene_counts <- file.path(processed_data_dir, "cleaned_human_gene_counts.rds")
-human_fragment_metadata <- file.path(report_out, "human_alignment_fragment_metadata.rds")
+cleaned_human_gene_counts <- file.path(PROCESSED_DATA_DIR, "cleaned_human_gene_counts.rds")
+human_fragment_metadata <- file.path(REPORT_DIR, "human_alignment_fragment_metadata.rds")
 
 #
 human_gene_counts <- read_tsv(
   file = human_gene_counts_file,
-  skip = 1
+  skip = 1 # Skip file metadata
 )
 
 # Convert the jsonl report to a tibble
@@ -121,6 +113,3 @@ write_rds(
   fragment_metadata,
   file = human_fragment_metadata
 )
-
-# Stop redirecting output
-sink()

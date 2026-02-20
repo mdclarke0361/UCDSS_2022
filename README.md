@@ -6,12 +6,8 @@ Clone this repo to desired project directory.
 
 ## Recreate Conda Env
 Below is an example command. Create conda environment from environment.yml in main project directory.
-Use desired project name in place of env_name.
 ```bash
-env_name="UCDSS"
-
 conda env create \
-	--name $env_name \
 	--file environment.yml
 ```
 
@@ -20,34 +16,39 @@ For this project, all raw read files have been organized into separate directori
 ```bash
 raw_read_file_dir="02_data/raw/read_files"
 
-bash 01_source/qc_raw_reads.sh \
+bash "01_source/qc_raw_reads.sh" \
     $raw_read_file_dir
 ```
 
 ## Trim Reads
 Use fastp program to trim adapters and output.
 Forward/reverse reads are detected using the 'R1'/'R2' designation in each fastq file.
+
+Use a low complexity filter to eliminate sequencing artifacts and non-specific sequences often mistaken for viral genomes.
 ```bash
 raw_read_file_dir="02_data/raw/read_files"
 
-bash 01_source/trim_raw_reads.sh \
+bash "01_source/trim_raw_reads.sh" \
     $raw_read_file_dir
 ```
 
 # Alignment to Human Genome
 Reference genome can be downloaded from NCBI database. To create an indexed genome for STAR to use, download the fasta sequence and GTF annotation file from NCBI.
 
-The reference genome used in this project is GRCh38.p14.
+The reference genome used in this project is GRCh38.p14
+
+From the NCBI site, this corresponds to the assembly number GCF_000001405.40
 ```bash
+assembly="GCF_000001405.40"
 download_temp_dir="02_data/reference/ncbi_download"
 
 mkdir -p $download_temp_dir
 
-download_temp_file=${download_temp_dir}/ncbi_dataset.zip
+download_temp_file="${download_temp_dir}/ncbi_dataset.zip"
 
-datasets download genome accession GCF_000001405.40 \
+datasets download genome accession $assembly \
     --include "genome,gtf,seq-report" \
-    --filename ${download_temp_file} \
+    --filename $download_temp_file \
 	--dehydrated
 
 # Unzip the downloaded data
@@ -76,9 +77,9 @@ assembly_report=$(
     -name "sequence_report.jsonl"
 )
 
-mv $gtf_file 02_data/reference/ref_human_genome.fna
-mv $fasta_file 02_data/reference/ref_human_annotation.gtf
-mv $assembly_report 02_data/reference/ref_human_annotation_report.jsonl
+mv $gtf_file "02_data/reference/ref_human_genome.fna"
+mv $fasta_file "02_data/reference/ref_human_annotation.gtf"
+mv $assembly_report "02_data/reference/ref_human_annotation_report.jsonl"
 
 rm -r $download_temp_dir
 ```
@@ -87,12 +88,10 @@ Prepare the reference genome for STAR run by generating a genome index.
 ```bash
 ref_genome="02_data/reference/ref_human_genome.fna"
 ref_annotation="02_data/reference/ref_human_annotation.gtf"
-index_dir="02_data/reference/human_ref_index"
 
-bash 01_source/index_human_ref.sh \
+bash "01_source/index_human_ref.sh" \
     $ref_genome \
-    $ref_annotation \
-    $index_dir
+    $ref_annotation
 ```
 
 Run STAR alignment, and keep all unaligned files for further screening against a database of viral genomes.
@@ -100,7 +99,7 @@ Run STAR alignment, and keep all unaligned files for further screening against a
 trimmed_read_file_dir="02_data/processed/trimmed_reads"
 index_dir="02_data/reference/human_ref_index"
 
-bash 01_source/align_human.sh \
+bash "01_source/align_human.sh" \
     $trimmed_read_file_dir \
     $index_dir
 ```
@@ -111,7 +110,7 @@ Use FeatureCounts (subRead) to count human transcript alignments.
 human_aligned_dir="02_data/processed/human_aligned"
 human_ref_annotation_file="02_data/reference/ref_human_annotation.gtf"
 
-bash 01_source/count_human_tx.sh \
+bash "01_source/count_human_tx.sh" \
 	$human_aligned_dir \
 	$human_ref_annotation_file
 ```
@@ -121,7 +120,7 @@ Clean the count data in R and prepare for further processing steps.
 human_gene_counts_file="02_data/processed/human_gene_counts.tsv"
 human_annotation_report="02_data/reference/ref_human_annotation_report.jsonl"
 
-Rscript 01_source/clean_human_count_data.r \
+Rscript "01_source/clean_human_count_data.r" \
     $human_gene_counts_file \
     $human_annotation_report
 ```
@@ -148,19 +147,24 @@ Retrieve the accession list from the website, then split the list into chunks.
 ```bash
 accession_list_file="02_data/reference/all_virus_accession_list.acc"
 temp_dir="02_data/reference/_temp"
-mkdir -p "${temp_dir}"
+mkdir -p $temp_dir
 
 split \
     -n 1000 \
 	-d \
 	--additional-suffix ".acc" \
-    "${accession_list_file}" \
+    $accession_list_file \
     "${temp_dir}/accession_list_"
 ```
 
 Use the accession lists to download sequence and annotation files from NCBI. For genomes collected from the GenBank database, only GFF3 format annotation files will be available.
+
+To improve download speeds, save an NCBI API key to a file and export it as a global variable which the Edirect suite of tools will use automatically.
+
 ```bash
-export NCBI_API_KEY="04983cea61c9d629bd3d5e241fca98f69109"
+ncbi_api_key_file="02_data/reference/NCBI_API_KEY"
+export NCBI_API_KEY=$( < $ncbi_api_key_file)
+
 accession_list_dir="02_data/reference/_temp"
 sequence_files_dir="02_data/reference/_temp_sequences"
 annotation_files_dir="02_data/reference/_temp_annotations"
@@ -168,7 +172,7 @@ annotation_files_dir="02_data/reference/_temp_annotations"
 mkdir -p $sequence_files_dir
 mkdir -p $annotation_files_dir
 
-for accession_list_file in "$accession_list_dir"/*; do
+for accession_list_file in "${accession_list_dir}"/*; do
 
     echo "Starting $(basename $accession_list_file)..."
 
@@ -178,13 +182,13 @@ for accession_list_file in "$accession_list_dir"/*; do
     temp_annotation_file=$(basename $accession_list_file)
     temp_annotation_file="${temp_annotation_file%.*}.gff3"
 
-    epost -db nuccore -input "${accession_list_file}" \
+    epost -db nuccore -input $accession_list_file \
         | efetch -format fasta \
-        > ${sequence_files_dir}/${temp_sequence_file}
+        > "${sequence_files_dir}/${temp_sequence_file}"
 
-    epost -db nuccore -input "${accession_list_file}" \
+    epost -db nuccore -input $accession_list_file \
         | efetch -format gff3 \
-        > ${annotation_files_dir}/${temp_annotation_file}
+        > "${annotation_files_dir}/${temp_annotation_file}"
 
     echo "Finished $(basename $accession_list_file)..."
 
@@ -232,13 +236,11 @@ In addition, handle the annotation of circular genomes which have features that 
 accession_list="02_data/reference/herpesviruses_accession_list.acc"
 annotation_file="02_data/reference/herpesviruses_annotation.gff3"
 sequence_file="02_data/reference/herpesviruses_sequences.fna"
-output_dir="02_data/reference"
 
 bash 01_source/convert_viral_annotation.sh \
     $accession_list \
     $annotation_file \
-    $sequence_file \
-    $output_dir
+    $sequence_file
 ```
 
 A good check of the file is to `grep` all lines with 'CDS' and look at the attributes to see that the transcript IDs are unique and that the gene_ids make sense.
@@ -252,10 +254,10 @@ ref_genome="02_data/reference/herpesviruses_sequences_converted.fna"
 ref_annotation="02_data/reference/herpesviruses_annotation_converted.gtf"
 index_dir="02_data/reference/herpesvirus_ref_index"
 
-bash 01_source/index_viral_ref.sh \
-    "${ref_genome}" \
-    "${ref_annotation}" \
-    "${index_dir}"
+bash "01_source/index_viral_ref.sh" \
+    $ref_genome \
+    $ref_annotation \
+    $index_dir
 ```
 
 # Alignment to Viral Genomes
@@ -264,7 +266,7 @@ bash 01_source/index_viral_ref.sh \
 unaligned_read_file_dir="02_data/processed/unaligned"
 index_dir="02_data/reference/herpesvirus_ref_index"
 
-bash 01_source/align_viral.sh \
+bash "01_source/align_viral.sh" \
     $unaligned_read_file_dir \
     $index_dir
 ```
@@ -275,7 +277,7 @@ bash 01_source/align_viral.sh \
 aligned_reads_dir="02_data/processed/viral_aligned"
 viral_ref_annotation_file="02_data/reference/herpesviruses_annotation_converted.gtf"
 
-bash 01_source/count_viral_tx.sh \
+bash "01_source/count_viral_tx.sh" \
 	$aligned_reads_dir \
 	$viral_ref_annotation_file
 ```
@@ -285,10 +287,9 @@ Clean the count data in R and prepare for further processing steps.
 
 In the counts file:
 - Chr is the <seqname> as defined in the GTF2.2 format.
-
 ```bash
 viral_counts_file="03_results/reports/viral_tx_counts.txt"
 
-Rscript 01_source/clean_viral_count_data.r \
+Rscript "01_source/clean_viral_count_data.r" \
     $viral_counts_file
 ```

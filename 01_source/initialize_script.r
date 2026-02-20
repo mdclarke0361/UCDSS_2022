@@ -4,7 +4,7 @@ library(conflicted)
 
 # Get path for project directory
 script_dir <- here()
-project_dir <- dirname(script_dir)
+PROJECT_DIR <- dirname(script_dir)
 
 # Ensure all project directories exist, if not, create them.
 subdirectories <- c(
@@ -15,7 +15,7 @@ subdirectories <- c(
 for (dir in subdirectories) {
 
     dir.create(
-        file.path(project_dir, dir),
+        file.path(PROJECT_DIR, dir),
         recursive = TRUE,
         showWarnings = FALSE
     )
@@ -23,27 +23,17 @@ for (dir in subdirectories) {
 }
 
 # Set variables to match repo file directory.
-metadata_dir <- file.path(project_dir, "02_data/metadata")
-processed_data_dir <- file.path(project_dir, "02_data/processed")
-raw_data_dir <- file.path(project_dir, "02_data/raw")
-reference_data_dir <- file.path(project_dir, "02_data/reference")
-figure_out <- file.path(project_dir, "03_results/figures")
-report_out <- file.path(project_dir, "03_results/reports")
-table_out <- file.path(project_dir, "03_results/tables")
-log_out <- file.path(project_dir, "03_results/logs")
-
-# Assign log filename
-assign_log_filename <- function() {
-
-	script_name <- basename(this.path())
-	script_basename <- sub("\\.[^.]*$", "", script_name)
-	log_file <- file.path(log_out, paste0(script_basename, ".log"))
-	return(log_file)
-
-}
+METADATA_DIR <- file.path(PROJECT_DIR, "02_data/metadata")
+PROCESSED_DATA_DIR <- file.path(PROJECT_DIR, "02_data/processed")
+RAW_DATA_DIR <- file.path(PROJECT_DIR, "02_data/raw")
+REF_DATA_DIR <- file.path(PROJECT_DIR, "02_data/reference")
+FIGURE_DIR <- file.path(PROJECT_DIR, "03_results/figures")
+REPORT_DIR <- file.path(PROJECT_DIR, "03_results/reports")
+TABLE_DIR <- file.path(PROJECT_DIR, "03_results/tables")
+LOG_DIR <- file.path(PROJECT_DIR, "03_results/logs")
 
 #
-plot_colours <- c(
+PLOT_COLOURS <- c(
     "#4A6990", "#A73030", "#79AF97",
     "#DF8F44", "#6A6599", "#374E55",
     "#B1746F", "#8A8B79", "#7AA6DC",

@@ -1,11 +1,10 @@
 #!/bin/bash
 
-# Initialize project scripts.
+# Initialize project bash scripts.
 
-# Get path for project directory
-script_name=$(basename $0)
+# Get path for project directory based on the calling script.
 script_dir=$(dirname $0)
-export project_dir=$(dirname $script_dir)
+export PROJECT_DIR=$(dirname $script_dir)
 
 # Ensure all project directories exist, if not, create them.
 subdirectories=(
@@ -17,31 +16,26 @@ subdirectories=(
 
 for dir in "${subdirectories[@]}"; do
 
-	mkdir -p ${project_dir}/${dir}
+	mkdir -p ${PROJECT_DIR}/${dir}
 
 done
 
-# Get path for project directories
-export metadata_dir="${project_dir}/02_data/metadata"
-export processed_data_dir="${project_dir}/02_data/processed"
-export raw_data_dir="${project_dir}/02_data/raw"
-export reference_data_dir="${project_dir}/02_data/reference"
-export figure_out="${project_dir}/03_results/figures"
-export report_out="${project_dir}/03_results/reports"
-export table_out="${project_dir}/03_results/tables"
-export log_out="${project_dir}/03_results/logs"
-
-# Assign log filename
-export log_file="${log_out}/${script_name%%.*}.log"
+# Get path for project directories set them as capitilized to indicate source.
+export METADATA_DIR="${PROJECT_DIR}/02_data/metadata"
+export PROCESSED_DATA_DIR="${PROJECT_DIR}/02_data/processed"
+export RAW_DATA_DIR="${PROJECT_DIR}/02_data/raw"
+export REF_DATA_DIR="${PROJECT_DIR}/02_data/reference"
+export FIGURE_DIR="${PROJECT_DIR}/03_results/figures"
+export REPORT_DIR="${PROJECT_DIR}/03_results/reports"
+export TABLE_DIR="${PROJECT_DIR}/03_results/tables"
+export LOG_DIR="${PROJECT_DIR}/03_results/logs"
 
 # Get the number of threads to use based on desired processor use.
-core_total="$(nproc --all)"
-threads=$(echo "${core_total}*0.8" | bc -l)
-export threads=${threads%.*}
-
+core_total=$(nproc --all)
+THREADS=$(echo "${core_total}*0.8" | bc -l)
+export THREADS=${THREADS%.*}
 
 # Set up of text colors for terminal output.
-# Text Colors
 export RED='\033[0;31m'
 export GREEN='\033[0;32m'
 export YELLOW='\033[0;33m'
