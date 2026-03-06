@@ -17,27 +17,27 @@ conflicts_prefer(base::setdiff)
 
 # Read arguments
 args <- commandArgs(trailingOnly = TRUE)
-human_gene_counts_file <- file.path(PROJECT_DIR, args[1])
-human_annotation_report <- file.path(PROJECT_DIR, args[2])
+human_tx_counts_file <- file.path(PROJECT_DIR, args[1])
+human_annotation_report_file <- file.path(PROJECT_DIR, args[2])
 
 # Assign name to output files
-cleaned_human_gene_counts <- file.path(PROCESSED_DATA_DIR, "cleaned_human_gene_counts.rds")
-human_fragment_metadata <- file.path(REPORT_DIR, "human_alignment_fragment_metadata.rds")
+cleaned_human_tx_counts <- file.path(PROCESSED_DATA_DIR, "cleaned_human_tx_counts.rds")
+human_alignment_metadata <- file.path(REPORT_DIR, "human_alignment_metadata.rds")
 
 #
-human_gene_counts <- read_tsv(
-  file = human_gene_counts_file,
+human_tx_counts <- read_tsv(
+  file = human_tx_counts_file,
   skip = 1 # Skip file metadata
 )
 
 # Convert the jsonl report to a tibble
-annotation_report <- stream_in(
-  file(human_annotation_report)
+human_annotation_report <- stream_in(
+  file(human_annotation_report_file)
   ) |>
   as_tibble()
 
 # Correct column names
-corrected_colnames <- human_gene_counts |>
+corrected_colnames <- human_tx_counts |>
   rename(
     gene_name = Geneid,
     chr = Chr,
@@ -53,7 +53,15 @@ corrected_colnames <- human_gene_counts |>
   ) |>
   # Remove file extension from all sample names
   rename_with(
-    ~ str_remove(.x, ".bam"),
+    ~ str_remove(.x, "\\..*"),
+    .cols = 7:last_col()
+  ) |>
+  rename_with(
+    ~ str_replace(.x, "_humanAlignment", ""),
+    .cols = 7:last_col()
+  ) |>
+  rename_with(
+    ~ str_replace(.x, "-", "_"),
     .cols = 7:last_col()
   )
 
@@ -73,7 +81,7 @@ deduplicated_values <- corrected_colnames |>
   # Use the annotation report to replace chromosome accessions with numbers
   left_join(
     select(
-      annotation_report,
+      human_annotation_report,
       chr = chrName,
       chr_acc = refseqAccession
     )
@@ -87,12 +95,12 @@ deduplicated_values <- corrected_colnames |>
   )
 
 # Split the counts from metadata information regarding individual fragments
-gene_counts <- deduplicated_values |>
+tx_counts <- deduplicated_values |>
   select(
     ! c(start, end, strand)
   )
 
-fragment_metadata <- deduplicated_values |>
+alignment_metadata <- deduplicated_values |>
   select(
     gene_name,
     chr,
@@ -105,11 +113,11 @@ fragment_metadata <- deduplicated_values |>
 
 # Save files
 write_rds(
-  gene_counts,
-  file = cleaned_human_gene_counts
+  tx_counts,
+  file = cleaned_human_tx_counts
 )
 
 write_rds(
-  fragment_metadata,
-  file = human_fragment_metadata
+  alignment_metadata,
+  file = human_alignment_metadata
 )

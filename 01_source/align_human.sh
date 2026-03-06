@@ -51,7 +51,7 @@ for sample_dir in "${trimmed_read_file_dir}/"*; do
 	
 	# Run STAR alignment and save unaligned files
 	STAR \
-		--runThreadN $threads \
+		--runThreadN $THREADS \
 		--genomeDir $index_dir \
 		--readFilesIn $input_files \
 		--readFilesCommand zcat \

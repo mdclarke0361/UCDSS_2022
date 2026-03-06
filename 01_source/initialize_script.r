@@ -8,17 +8,18 @@ PROJECT_DIR <- dirname(script_dir)
 
 # Ensure all project directories exist, if not, create them.
 subdirectories <- c(
-	"02_data/metadata", "02_data/processed", "02_data/raw", "02_data/reference",
-	"03_results/figures", "03_results/reports", "03_results/tables", "03_results/logs"
+  "02_data/metadata", "02_data/processed", "02_data/raw", "02_data/reference",
+  "03_results/figures", "03_results/reports", "03_results/tables",
+  "03_results/logs"
 )
 
 for (dir in subdirectories) {
 
-    dir.create(
-        file.path(PROJECT_DIR, dir),
-        recursive = TRUE,
-        showWarnings = FALSE
-    )
+  dir.create(
+    file.path(PROJECT_DIR, dir),
+    recursive = TRUE,
+    showWarnings = FALSE
+  )
 
 }
 
@@ -34,9 +35,9 @@ LOG_DIR <- file.path(PROJECT_DIR, "03_results/logs")
 
 #
 PLOT_COLOURS <- c(
-    "#4A6990", "#A73030", "#79AF97",
-    "#DF8F44", "#6A6599", "#374E55",
-    "#B1746F", "#8A8B79", "#7AA6DC",
-    "#616530", "#642822", "#9A5324",
-    "#0B1948"
+  "#4A6990", "#A73030", "#79AF97",
+  "#DF8F44", "#6A6599", "#374E55",
+  "#B1746F", "#8A8B79", "#7AA6DC",
+  "#616530", "#642822", "#9A5324",
+  "#0B1948"
 )

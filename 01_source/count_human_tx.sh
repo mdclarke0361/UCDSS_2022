@@ -26,7 +26,7 @@ featureCounts \
 	-a $human_ref_annotation_file \
 	-p \
 	--countReadPairs \
-	-T $threads \
+	-T $THREADS \
 	-o $count_report_file \
 	$file_list
 

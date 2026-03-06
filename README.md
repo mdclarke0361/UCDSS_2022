@@ -1,6 +1,4 @@
 # UCDSS 2022 - RNAseq Analysis of Human Virome in Stroke
-
-# Set Up
 ## Clone Repo
 Clone this repo to desired project directory.
 
@@ -77,17 +75,17 @@ assembly_report=$(
     -name "sequence_report.jsonl"
 )
 
-mv $gtf_file "02_data/reference/ref_human_genome.fna"
-mv $fasta_file "02_data/reference/ref_human_annotation.gtf"
-mv $assembly_report "02_data/reference/ref_human_annotation_report.jsonl"
+mv $gtf_file "02_data/reference/human_ref/ref_human_sequence.fna"
+mv $fasta_file "02_data/reference/human_ref/ref_human_annotation.gtf"
+mv $assembly_report "02_data/reference/human_ref/ref_human_annotation_report.jsonl"
 
 rm -r $download_temp_dir
 ```
 
 Prepare the reference genome for STAR run by generating a genome index.
 ```bash
-ref_genome="02_data/reference/ref_human_genome.fna"
-ref_annotation="02_data/reference/ref_human_annotation.gtf"
+ref_genome="02_data/reference/human_ref/ref_human_sequence.fna"
+ref_annotation="02_data/reference/human_ref/ref_human_annotation.gtf"
 
 bash "01_source/index_human_ref.sh" \
     $ref_genome \
@@ -97,7 +95,7 @@ bash "01_source/index_human_ref.sh" \
 Run STAR alignment, and keep all unaligned files for further screening against a database of viral genomes.
 ```bash
 trimmed_read_file_dir="02_data/processed/trimmed_reads"
-index_dir="02_data/reference/human_ref_index"
+index_dir="02_data/reference/human_ref/human_ref_index"
 
 bash "01_source/align_human.sh" \
     $trimmed_read_file_dir \
@@ -108,7 +106,7 @@ bash "01_source/align_human.sh" \
 Use FeatureCounts (subRead) to count human transcript alignments. 
 ```bash
 human_aligned_dir="02_data/processed/human_aligned"
-human_ref_annotation_file="02_data/reference/ref_human_annotation.gtf"
+human_ref_annotation_file="02_data/reference/human_ref/ref_human_annotation.gtf"
 
 bash "01_source/count_human_tx.sh" \
 	$human_aligned_dir \
@@ -117,11 +115,11 @@ bash "01_source/count_human_tx.sh" \
 
 Clean the count data in R and prepare for further processing steps.
 ```bash
-human_gene_counts_file="02_data/processed/human_gene_counts.tsv"
-human_annotation_report="02_data/reference/ref_human_annotation_report.jsonl"
+human_tx_counts_file="02_data/processed/human_tx_counts.txt"
+human_annotation_report_file="02_data/reference/human_ref/ref_human_annotation_report.jsonl"
 
 Rscript "01_source/clean_human_count_data.r" \
-    $human_gene_counts_file \
+    $human_tx_counts_file \
     $human_annotation_report
 ```
 
@@ -137,16 +135,15 @@ Note: The current command-line tool from NCBI which allows downloading of datase
 
 NCBI Virus - Find list of 'complete' nucleotides for viruses with a human host.
 
-### All Human Viruses
 Selection parameters on NCBI Virus:
 Host = Human
 Complete Nucleotides
 Sequence Length > 1800
 
-Retrieve the accession list from the website, then split the list into chunks.
+Retrieve the accession list from NCBI Virus, then split the list into chunks.
 ```bash
-accession_list_file="02_data/reference/all_virus_accession_list.acc"
-temp_dir="02_data/reference/_temp"
+accession_list_file="02_data/reference/virome_ref/virome_accession_list.acc"
+temp_dir="02_data/reference/virome_ref/_temp"
 mkdir -p $temp_dir
 
 split \
@@ -165,10 +162,10 @@ To improve download speeds, save an NCBI API key to a file and export it as a gl
 ncbi_api_key_file="02_data/reference/NCBI_API_KEY"
 export NCBI_API_KEY=$( < $ncbi_api_key_file)
 
-accession_list_dir="02_data/reference/_temp"
-sequence_files_dir="02_data/reference/_temp_sequences"
-annotation_files_dir="02_data/reference/_temp_annotations"
+accession_list_dir="02_data/reference/virome_ref/_temp"
 
+sequence_files_dir="02_data/reference/virome_ref/_temp_sequences"
+annotation_files_dir="02_data/reference/virome_ref/_temp_annotations"
 mkdir -p $sequence_files_dir
 mkdir -p $annotation_files_dir
 
@@ -195,52 +192,31 @@ for accession_list_file in "${accession_list_dir}"/*; do
 done
 ```
 
-### Human Herpesviruses
-Selection parameters on NCBI Virus:
-Host = Human
-Complete Nucleotides
-Taxon = Orthoherpesviridae
-
-Retrieve the accession list from the website, then split the list into chunks.
-```bash
-accession_list_file="02_data/reference/herpesviruses_accession_list.acc"
-temp_dir="02_data/reference/_temp"
-mkdir -p "${temp_dir}"
-
-split \
-    -n 20 \
-	-d \
-	--additional-suffix ".tmp" \
-    "${accession_list_file}" \
-    "${temp_dir}/accession_list_"
-```
-
-Use the accession list to download sequence and annotation files from NCBI. For genomes collected from the GenBank database, only GFF3 format annotation files will be available.
-```bash
-accession_list="02_data/testing/herpesviruses_accession_list.acc"
-export NCBI_API_KEY="04983cea61c9d629bd3d5e241fca98f69109"
-
-epost -db nuccore -input "${accession_list}" \
-    | efetch -format fasta \
-    > "02_data/testing/herpesviruses_sequences.fna"
-
-epost -db nuccore -input "${accession_list}" \
-    | efetch -format gff3 \
-    > "02_data/testing/herpesviruses_annotation.gff3"
-```
-
 ## Convert GFF3 files
 Run annotation conversion script to convert the GFF3 format to GTF2.2 (see http://mblab.wustl.edu/GTF22.html).
 In addition, handle the annotation of circular genomes which have features that overrun the length of the linearly-represented geneome sequence.
 ```bash
-accession_list="02_data/reference/herpesviruses_accession_list.acc"
-annotation_file="02_data/reference/herpesviruses_annotation.gff3"
-sequence_file="02_data/reference/herpesviruses_sequences.fna"
+accession_list="02_data/reference/virome_ref/virome_accession_list.acc"
+annotation_file="02_data/reference/virome_ref/virome_annotation.gff3"
+sequence_file="02_data/reference/virome_ref/virome_sequences.fna"
 
-bash 01_source/convert_viral_annotation.sh \
+bash "01_source/convert_viral_annotation.sh" \
     $accession_list \
     $annotation_file \
     $sequence_file
+```
+
+## Summarize Viral Database
+Create a summary of the viral species and individual genes covered in the viral database.
+This requires the sql file for the R package Taxonomizr to be downloaded.
+```bash
+ref_annotation_file="02_data/reference/virome_ref/virome_annotation_converted.gtf"
+sql_file="01_source/taxonomizr/accessionTaxa.sql"
+
+Rscript "01_source/summarize_viral_database.r" \
+    $ref_annotation_file \
+    $sql_file
+
 ```
 
 A good check of the file is to `grep` all lines with 'CDS' and look at the attributes to see that the transcript IDs are unique and that the gene_ids make sense.
@@ -250,9 +226,9 @@ Note: Some of the records downloaded from NCBI will have a single 'region' line 
 ## Indexing Viral Genomes
 Index the reference viral genomes for use with STAR alignment
 ```bash
-ref_genome="02_data/reference/herpesviruses_sequences_converted.fna"
-ref_annotation="02_data/reference/herpesviruses_annotation_converted.gtf"
-index_dir="02_data/reference/herpesvirus_ref_index"
+ref_genome="02_data/reference/virome_ref/virome_sequences_converted.fna"
+ref_annotation="02_data/reference/virome_ref/virome_annotation_converted.gtf"
+index_dir="02_data/reference/virome_ref/virome_ref_index"
 
 bash "01_source/index_viral_ref.sh" \
     $ref_genome \
@@ -261,10 +237,9 @@ bash "01_source/index_viral_ref.sh" \
 ```
 
 # Alignment to Viral Genomes
-
 ```bash
 unaligned_read_file_dir="02_data/processed/unaligned"
-index_dir="02_data/reference/herpesvirus_ref_index"
+index_dir="02_data/reference/virome_ref/virome_ref_index"
 
 bash "01_source/align_viral.sh" \
     $unaligned_read_file_dir \
@@ -272,10 +247,9 @@ bash "01_source/align_viral.sh" \
 ```
 
 ## Counting Viral Transcripts
-
 ```bash
 aligned_reads_dir="02_data/processed/viral_aligned"
-viral_ref_annotation_file="02_data/reference/herpesviruses_annotation_converted.gtf"
+viral_ref_annotation_file="02_data/reference/virome_ref/virome_annotation_converted.gtf"
 
 bash "01_source/count_viral_tx.sh" \
 	$aligned_reads_dir \
@@ -288,8 +262,23 @@ Clean the count data in R and prepare for further processing steps.
 In the counts file:
 - Chr is the <seqname> as defined in the GTF2.2 format.
 ```bash
-viral_counts_file="03_results/reports/viral_tx_counts.txt"
+viral_tx_counts_file="02_data/processed/viral_tx_counts.txt"
 
 Rscript "01_source/clean_viral_count_data.r" \
     $viral_counts_file
 ```
+
+# Analysis
+## Clean and Prepare Data for Analysis
+```bash
+clinical_data_file="02_data/metadata/clinicalData.txt"
+human_tx_counts_file="02_data/processed/cleaned_human_tx_counts.rds"
+viral_tx_counts_file="02_data/processed/cleaned_viral_tx_counts.rds"
+
+RScript "01_source/prepare_data.r"
+
+```
+
+## Run Analysis and Create Figures
+
+The analysis code is documented in a separate workbook, located at: 01_source/analysis.rmd

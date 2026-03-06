@@ -6,11 +6,11 @@
 source 01_source/initialize_script.sh
 
 # Read in arguments
-aligned_reads_dir=${project_dir}/${1}
-viral_ref_annotation_file=${project_dir}/${2}
+aligned_reads_dir=${PROJECT_DIR}/${1}
+viral_ref_annotation_file=${PROJECT_DIR}/${2}
 
 # Set a name for output count report dir
-count_report_file=${report_out}/viral_tx_counts.txt
+viral_tx_counts_file=${PROCESSED_DATA_DIR}/viral_tx_counts.txt
 
 # Get file list of aligned read files to pass to feature counts
 file_list=$(
@@ -34,4 +34,4 @@ featureCounts \
 	$file_list
 
 # Move automatically created log file
-mv ${count_report_file}.summary ${log_out}/viral_tx_count_summary.log
+mv ${viral_tx_counts_file}.summary ${LOG_DIR}/viral_tx_count_summary.log
