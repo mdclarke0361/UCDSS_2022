@@ -68,3 +68,6 @@ write_rds(
   counts,
   file = cleaned_viral_tx_counts_file
 )
+
+# Report output file location to std out
+cat("Cleaning complete, data stored as:", YELLOW, cleaned_viral_tx_counts_file, NC, "\n", sep = "")

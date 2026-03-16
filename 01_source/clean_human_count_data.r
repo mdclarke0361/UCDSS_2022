@@ -36,8 +36,9 @@ human_annotation_report <- stream_in(
   ) |>
   as_tibble()
 
-# Correct column names
-corrected_colnames <- human_tx_counts |>
+# Tidy and reorganize data
+human_tx_counts <- human_tx_counts |>
+  # Use snake_case naming
   rename(
     gene_name = Geneid,
     chr = Chr,
@@ -56,18 +57,18 @@ corrected_colnames <- human_tx_counts |>
     ~ str_remove(.x, "\\..*"),
     .cols = 7:last_col()
   ) |>
+  # Remove alignment marker
   rename_with(
     ~ str_replace(.x, "_humanAlignment", ""),
     .cols = 7:last_col()
   ) |>
+  # Remove hyphens
   rename_with(
     ~ str_replace(.x, "-", "_"),
     .cols = 7:last_col()
-  )
-
+  ) |>
 # Duplicated chromosome records indicate multiple intragenic alignments
 # Remove duplicated values but record number of multiples
-deduplicated_values <- corrected_colnames |>
   mutate(
     chr_list = strsplit(chr, split = ";"),
     fragment_count = lengths(chr_list),
@@ -87,37 +88,19 @@ deduplicated_values <- corrected_colnames |>
     )
   ) |>
   select(
-    !c(chr_acc)
+    ! c(chr_acc, start, end, strand)
   ) |>
   relocate(
     chr,
     .before = 1
   )
 
-# Split the counts from metadata information regarding individual fragments
-tx_counts <- deduplicated_values |>
-  select(
-    ! c(start, end, strand)
-  )
-
-alignment_metadata <- deduplicated_values |>
-  select(
-    gene_name,
-    chr,
-    fragment_count,
-    start,
-    end,
-    strand,
-    length
-  )
-
 # Save files
 write_rds(
-  tx_counts,
+  human_tx_counts,
   file = cleaned_human_tx_counts
 )
 
-write_rds(
-  alignment_metadata,
-  file = human_alignment_metadata
-)
+# Report output file location to std out
+cat("Cleaning complete, data stored as:", YELLOW, cleaned_human_tx_counts, NC, "\n", sep = "")
+

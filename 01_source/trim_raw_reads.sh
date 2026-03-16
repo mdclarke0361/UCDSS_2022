@@ -107,5 +107,5 @@ for subdir in "${raw_read_file_dir}/"*; do
 done
 
 # Notify user of output location
-echo "Trimming complete. Trimmed reads saved to: ${YELLOW}${trimmed_reads_dir}${NC}" \
+echo -e "Trimming complete. Trimmed reads saved to: ${YELLOW}${trimmed_reads_dir}${NC}" \
 	"Trimming reports saved to: ${YELLOW}${trim_report_dir}${NC}"

@@ -3,6 +3,9 @@
 # Source initialization script
 source 01_source/initialize_script.sh
 
+# Prevent persistent process spawning by trapping keyboard interrupt
+trap "kill 0" SIGINT
+
 # Read in arguments
 ref_genome=${PROJECT_DIR}/${1}
 ref_annotation=${PROJECT_DIR}/${2}

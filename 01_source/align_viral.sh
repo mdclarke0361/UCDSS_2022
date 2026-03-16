@@ -50,3 +50,9 @@ done
 
 # Clean up all temporary files
 rm -r $temp_alignment_dir
+
+# Notify user of output location
+echo -e "Alignment complete." \
+	"Aligned files saved to: ${YELLOW}${viral_aligned_dir}${NC}" \
+	"Alignment reports saved to: ${YELLOW}${star_log_dir}${NC}"
+

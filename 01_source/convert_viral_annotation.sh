@@ -307,3 +307,7 @@ while read -r acc; do
 done < $accession_list
 
 rm -r $temp_dir
+
+echo -e "Virome reference files converted." \
+	"Sequence file saved as: ${YELLOW}${output_sequence_file}${NC}" \
+	"Annotation file saved as: ${YELLOW}${output_annotation_file}${NC}"

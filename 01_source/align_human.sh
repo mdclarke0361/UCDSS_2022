@@ -5,6 +5,9 @@
 # Source initialization script
 source 01_source/initialize_script.sh
 
+# Prevent persistent process spawning by trapping keyboard interrupt
+trap "kill 0" SIGINT
+
 # Read in arguments
 trimmed_read_file_dir="${PROJECT_DIR}/${1}"
 index_dir="${PROJECT_DIR}/${2}"
@@ -26,7 +29,6 @@ mkdir -p $star_log_dir
 for sample_dir in "${trimmed_read_file_dir}/"*; do
 
 	#
-	sample_dir=${1}
 	sample_name=$(basename $sample_dir)
 
 	# Compile list of filenames for STAR input
@@ -82,7 +84,7 @@ done
 rm -r $temp_alignment_dir
 
 # Notify user of output location
-echo "Alignment complete." \
+echo -e "Alignment complete." \
 	"Aligned files saved to: ${YELLOW}${human_aligned_dir}${NC}" \
 	"Unaligned files saved to: ${YELLOW}${unaligned_dir}${NC}" \
 	"Alignment reports saved to: ${YELLOW}${star_log_dir}${NC}"

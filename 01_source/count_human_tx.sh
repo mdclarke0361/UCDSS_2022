@@ -5,6 +5,9 @@
 # Source initialization script
 source "01_source/initialize_script.sh"
 
+# Prevent persistent process spawning by trapping keyboard interrupt
+trap "kill 0" SIGINT
+
 # Read in arguments
 aligned_reads_dir="${PROJECT_DIR}/${1}"
 human_ref_annotation_file="${PROJECT_DIR}/${2}"
@@ -21,7 +24,7 @@ file_list=$(
 	sort
 )
 
-#
+# Run featureCounts program, specify paired-end reading
 featureCounts \
 	-a $human_ref_annotation_file \
 	-p \
@@ -34,6 +37,7 @@ featureCounts \
 mv "${count_report_file}.summary" $feature_counts_log_file
 
 # Notify user of output location
-echo "Transcript counting complete." \
+echo -e "Transcript counting complete." \
 	"Report file saved to: ${YELLOW}${count_report_file}${NC}" \
 	"Log file saved to: ${YELLOW}${feature_counts_log_file}${NC}"
+
