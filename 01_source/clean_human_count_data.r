@@ -12,8 +12,10 @@ suppressPackageStartupMessages({
   library(jsonlite)
 })
 
-conflict_prefer_all("dplyr", quiet = TRUE)
-conflicts_prefer(base::setdiff)
+suppressMessages({
+  conflict_prefer_all("dplyr", quiet = TRUE)
+  conflicts_prefer(base::setdiff)
+})
 
 # Read arguments
 args <- commandArgs(trailingOnly = TRUE)

@@ -12,70 +12,88 @@
 # origin into two features and reorganizing the feature parameters accordingly.
 
 # Source initialization script
-source 01_source/initialize_script.sh
+source "01_source/initialize_script.sh"
 
 # Prevent persistent process spawning by trapping keyboard interrupt
 trap "kill 0" SIGINT
 
 # Read in arguments
-accession_list="${PROJECT_DIR}/${1}"
-annotation_file="${PROJECT_DIR}/${2}"
-sequence_file="${PROJECT_DIR}/${3}"
+annotation_files_dir="${PROJECT_DIR}/${1}"
+sequence_files_dir="${PROJECT_DIR}/${2}"
 
-# Create output directories and files
-# Create temporary directories for splitting files
-temp_dir="${REF_DATA_DIR}/_temp"
+# Create temporary directory for files being processed
+temp_dir="${REF_DATA_DIR}/virome_ref/_temp"
 mkdir -p $temp_dir
 
-# Assign output files
-output_annotation_file="${REF_DATA_DIR}/$(basename $annotation_file)"
-output_annotation_file="${output_annotation_file%.*}_converted.gtf"
-output_sequence_file="${REF_DATA_DIR}/$(basename $sequence_file)"
-output_sequence_file="${output_sequence_file%.*}_converted.fna"
+# Create files for final output
+converted_annotation_file="${REF_DATA_DIR}/virome_ref/converted_virome_annotation.gtf"
+converted_sequence_file="${REF_DATA_DIR}/virome_ref/converted_virome_sequence.fna"
+touch $converted_annotation_file
+touch $converted_sequence_file
 
-touch $output_annotation_file
-touch $output_sequence_file
+# Create functions
 
-# Split large files to run concurrently with multiple processes
-# Prepare files for splitting by removing anything before the first header line
-sed -n '/^##sequence-region/,$p' $annotation_file > "${annotation_file}.tmp" &&
-	mv "${annotation_file}.tmp" $annotation_file
+split_file () {
 
-sed -n '/^>/,$p' $sequence_file > "${sequence_file}.tmp" &&
-	mv "${sequence_file}.tmp" $sequence_file
+	# Split large files to run concurrently with multiple processes
+	
+	# Read in arguments
+	local file_to_split=$1
+	
+	# Set the pattern for splitting based on file type
+	if [[ $file_to_split == *".gff3" ]]; then
 
-# Split the input files into temporary files, each with a single genome
-csplit \
-	-f "${temp_dir}/annotation_"\
-	-b "%03d.tmp" \
-	-s \
-	-z \
-	$annotation_file \
-	'/^##sequence-region/' '{*}'
+		local suffix=".gff3"
+		local pattern="##sequence-region"
+		local acc_col=2
 
-csplit \
-	-f "${temp_dir}/sequence_" \
-	-b "%03d.tmp" \
-	-s \
-	-z \
-	$sequence_file \
-	'/^>/' '{*}'
+	else
 
-# Define the function to process gff3 files
-process_gff3 () {
+		local suffix=".fna"
+		local pattern=">"
+		local acc_col=1
 
-	annotation_file=$1
+	fi
 
-	sequence_file=${annotation_file/annotation/sequence}
+	# Remove lines above the first genome header and pipe
+	# to splitting function
+	sed -n "/^${pattern}/,\$p" $file_to_split |
+		csplit \
+			-f "${temp_split_dir}/"\
+			-b "%03d${suffix}" \
+			-s \
+			-z \
+			- \
+			"/^${pattern}/" '{*}'
 
-	# First read through of file:
-	# Determine the genome length (as linear), and the start and end
-	# points of each feature.
+	# Rename the split files with the accession number of the genome
+	for split_file in "${temp_split_dir}/"*"${suffix}"; do
+		
+		local accession
+		accession=$(
+			grep -m 1 "${pattern}" $split_file |
+				awk "{print \$${acc_col}}" |
+				sed 's/>//'
+			)
+
+		acc_filename="${temp_split_dir}/${accession}${suffix}"
+
+		mv $split_file $acc_filename
+
+	done
+
+}
+
+get_genome_params () {
+
+	# Determine the genome length (as linear) and start/end of each feature.
 	while read -r line && [[ -n $line ]]; do
 
 		# Skip header lines
 		if [[ $line == "#"* ]]; then
+
 			continue
+
 		fi
         
 		# Parse the line by tab delimiter
@@ -110,87 +128,102 @@ process_gff3 () {
 		elif [[ $feature_end -gt $region_end ]]; then
 
 			# Set the new max for the region
-			region_end=${feature_end}
+			region_end=$feature_end
 
 		fi
 
 		accession=${feature_params[0]}
 
-	done < $annotation_file
+	done < $split_annotation_file
 
-	# Use the collected accession number to save a processed file
-	# Only genomes with features other than 'region' will get an output
-	processed_annotation_file="${temp_dir}/${accession}.gtf.tmp"
-	processed_sequence_file="${temp_dir}/${accession}.fna.tmp"
+}
 
-	# If any overlapping features exist the file must be read through again
-	# to catch any features that start within the overlap, but overrun the end of
-	# the overlap.
+update_genome_params () {
+
+	# Read through the file
+	while read -r line && [[ -n $line ]]; do
+
+		# Parse the line
+		IFS=$'\t'
+		read -ra feature_params <<< $line
+
+		feature_type=${feature_params[2]}
+		feature_start=${feature_params[3]}
+		feature_end=${feature_params[4]}
+		
+		# Ignore the GenBank 'match' features
+		if [[ $feature_type == "match" || $feature_type == "region" ]]; then
+
+			continue
+		
+		fi
+
+		# Look for features that start in overlap and end past the overlap
+		if [[ $feature_start -lt $overlap && $feature_end -gt $overlap ]]; then
+			
+			# Adjust overlap region to include the entire feature
+			overlap=$feature_end
+
+			# Set the corrected region end
+			region_end=$(( genome_length + feature_end ))
+
+		fi
+
+	done < $split_annotation_file
+
+}
+
+edit_sequence_file () {
+
+	# Retrieve sequence string from fasta file
+	sequence_header=$(head -n1 $split_sequence_file)
+	original_seq=$(grep -v '^>' $split_sequence_file | tr -d '\n')
+
+	# Get overlapping sequence
+	sequence_overlap=${original_seq:0:${overlap}}
+
+	# Replace the begining of the sequence with repeating N characters
+	printf -v repeating_n '%*s' $overlap ''
+	repeating_n=${repeating_n// /N}
+
+	# Assemble the new sequence string
+	new_sequence="${repeating_n}${original_seq:$overlap}${sequence_overlap}"
+
+	# Write header + new sequence to a temp file
+	printf '%s\n' $sequence_header >> $processed_sequence_file
+	printf '%s\n' $new_sequence | fold -w70 >> $processed_sequence_file
+
+}
+
+check_circularity () {
+
+	#
+
+	#
 	overlap=$(( region_end - genome_length ))
 
 	if [[ $overlap -gt 0 ]]; then
 		
-		echo "${accession} is circular!"
+		echo -e "${accession} is circular!" \
+		>> $LOG_FILE
 
-		# Read through the file
-		while read -r line && [[ -n $line ]]; do
-
-			# Parse the line
-			IFS=$'\t'
-			read -ra feature_params <<< $line
-
-			feature_type=${feature_params[2]}
-			feature_start=${feature_params[3]}
-			feature_end=${feature_params[4]}
-			
-			# Ignore the GenBank 'match' features
-			if [[ $feature_type == "match" || $feature_type == "region" ]]; then
-
-				continue
-			
-			fi
-
-			# Look for features that start in overlap and end past the overlap
-			if [[ $feature_start -lt $overlap && $feature_end -gt $overlap ]]; then
-				
-				# Adjust overlap region to include the entire feature
-				overlap=$feature_end
-
-				# Set the corrected region end
-				region_end=$(( genome_length + feature_end ))
-
-			fi
-
-		done < $annotation_file
+		# Get the updated lengths for the genome
+		update_genome_params
 
 		# Make the neccessary changes to the sequence file
-		# Retrieve sequence string from fasta file
-		sequence_header=$(head -n1 $sequence_file)
-		original_seq=$(grep -v '^>' $sequence_file | tr -d '\n')
-
-		# Get overlapping sequence
-		sequence_overlap=${original_seq:0:${overlap}}
-
-		# Replace the begining of the sequence with repeating N characters
-		printf -v repeating_n '%*s' $overlap ''
-		repeating_n=${repeating_n// /N}
-
-		# Assemble the new sequence string
-		new_sequence="${repeating_n}${original_seq:$overlap}${sequence_overlap}"
-
-		# Write header + new sequence to a temp file
-		printf '%s\n' $sequence_header >> $processed_sequence_file
-		printf '%s\n' $new_sequence | fold -w70 >> $processed_sequence_file
+		edit_sequence_file
 
 	else
 
 		# The genome is linear, so just copy the sequence file over
-		cat $sequence_file >> $processed_sequence_file
+		cat $split_sequence_file >> $processed_sequence_file
 
 	fi
 
-	# Second (or third) read through of file:
-	# Read through the file to convert lines to GTF
+}
+
+convert_to_gtf () {
+
 	while read -r line && [[ -n "${line}" ]]; do
 
 		# Look for header lines and pass straight to output file
@@ -257,57 +290,152 @@ process_gff3 () {
 
 		# Print the GTF-formatted feature string
 		printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
-			"${accession}" "${source}" "${feature_type}" "${feature_start}" "${feature_end}" "${score}" "${strand}" \
-				"${frame}" "gene_id \"${gene_id}\"; transcript_id \"${transcript_id}\";" \
-			>> "${processed_annotation_file}"
+			"$accession" "$source" "$feature_type" "$feature_start" "$feature_end" "$score" "$strand" \
+			"$frame" "gene_id \"${gene_id}\"; transcript_id \"${transcript_id}\";" \
+			>> $processed_annotation_file
 
-	done < $annotation_file
-
-	echo "finished ${accession}"
+	done < $split_annotation_file
 
 }
 
-# Loop through temp dir and process each gff3 file
-for temp_annotation_file in "${temp_dir}/annotation"*; do
+process_gff3 () {
+	
+	# Read through a GFF3 file and convert it to GTF2.2
+	# Create a linear sequence and reference for circular genomes
 
-	process_gff3 $temp_annotation_file &
+	# First read through of annotation to get accession and genome length
+	get_genome_params
 
-	# Throttle to thread limit
-	while [[ $(jobs -r -p | wc -l) -ge $THREADS ]]; do
+	# If the genome is annotated then an accession will be assigned
+	if [[ -n $accession ]]; then
 
-		sleep 0.1
+		# Assign filenames for the converted files, using accession number
+		processed_annotation_file="${temp_processed_dir}/${accession}.gff3"
+		processed_sequence_file="${temp_processed_dir}/${accession}.fna"
+		touch $processed_annotation_file
+		touch $processed_sequence_file
+
+		# If any overlapping features exist the file must be read through again
+		# to catch any features that start within the overlap, but overrun the end of
+		# the overlap.
+		check_circularity
+
+		# Second (or third) read through of file:
+		# Read through the file to convert lines to GTF
+		convert_to_gtf
+
+		echo -e "$(TIMESTAMP)Processed ${accession}" >> $LOG_FILE
+
+	else
+
+		echo -e "$(TIMESTAMP)${split_annotation_file} does not have features." >> $LOG_FILE
+
+		return
+
+	fi
+
+}
+
+cat_processed_files () {
+
+	#
+	
+	#
+	for annotation_to_cat in "${temp_processed_dir}/"*".gff3"; do
+
+		#
+		sequence_to_cat=${annotation_to_cat/".gff3"/".fna"}
+
+		# Cat converted files and add to final output
+		cat $annotation_to_cat >> $converted_annotation_file
+		printf "\n" >> $converted_annotation_file
+
+		cat $sequence_to_cat >> $converted_sequence_file
+		printf "\n" >> $converted_sequence_file
 
 	done
 
-done
+}
 
-# Wait for processing to finish before joining temporary files
-wait
+# Main Program
+main () {
 
-while read -r acc; do
+	for annotation_file in "${annotation_files_dir}/"*; do
 
-	# Check if a processed file exists
-	cat_annotation_file="${temp_dir}/${acc}.gtf.tmp"
-	cat_sequence_file="${temp_dir}/${acc}.fna.tmp"
+		# Get the index to use to match annotation and sequence files
+		file_index=$(basename $annotation_file)
+		file_index=${file_index%.*}
 
-	if [[ -f $cat_annotation_file ]]; then
+		echo -e "$(TIMESTAMP)Processing accessions from file number: ${YELLOW}${file_index}${NC}"
 
-		cat $cat_annotation_file >> $output_annotation_file
-		printf "\n" >> $output_annotation_file
+		# Create dir for split files
+		temp_split_dir="${temp_dir}/split/${file_index}"
+		mkdir -p $temp_split_dir
 
-		cat $cat_sequence_file >> $output_sequence_file
-		printf "\n" >> $output_sequence_file
+		# Create temp dir for processed files
+		temp_processed_dir="${temp_dir}/converted/${file_index}"
+		mkdir -p $temp_processed_dir
 
-	else
+		# Get the filename for the sequence file to process
+		sequence_file="${sequence_files_dir}/${file_index}.fna"
+
+		# Split the annotation and sequence files and save into split dir
+		split_file $annotation_file
+		split_file $sequence_file
 		
-		echo "${acc} was not processed..."
-	
-	fi
+		# 
+		for split_annotation_file in "${temp_split_dir}/"*.gff3; do
 
-done < $accession_list
+			#
+			split_sequence_file=${split_annotation_file/".gff3"/".fna"}
 
-rm -r $temp_dir
+			# Check that a matching sequence file exists
+			if [ ! -f $split_sequence_file ]; then
 
-echo -e "Virome reference files converted." \
-	"Sequence file saved as: ${YELLOW}${output_sequence_file}${NC}" \
-	"Annotation file saved as: ${YELLOW}${output_annotation_file}${NC}"
+				echo "$split_sequence_file does not exist!" >> $LOG_FILE
+
+				continue
+
+			fi
+
+			#
+			process_gff3 &
+
+			# Throttle to thread limit
+			while [[ $(jobs -r -p | wc -l) -ge $THREADS ]]; do
+
+				sleep 0.1
+
+			done
+
+		done
+
+		# Wait for the entire temp file to be processed
+		wait
+
+		echo -e "${GREEN}${annotation_file}${NC} processed. Writing temporary files to main output file..."
+
+		cat_processed_files
+
+		# Wait for all the files to write to final output
+		wait
+
+		# Clean up temporary files
+		rm -r $temp_split_dir
+		rm -r $temp_processed_dir
+
+	done
+
+	# Wait for all processes to finish
+	wait
+
+	# Delete temporary directory
+	rm -rf $temp_dir
+
+	echo -e "$(TIMESTAMP)Virome reference files converted." \
+		"\nSequence file saved as: ${YELLOW}${converted_sequence_file}${NC}" \
+		"\nAnnotation file saved as: ${YELLOW}${converted_annotation_file}${NC}"
+
+}
+
+main

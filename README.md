@@ -22,8 +22,7 @@ Output:
 # Set Up Project
 The below code blocks run scripts that are stored in the 01_source folder. They are intended to be run as stand-alone units from the main repo directory. In this way, you may track your data input from each block, making changes as required and running each part of the analysis individually.
 
-The file structure for the project is set withi
-n the scripts, the location of the output data is printed to stdout at the end of each script.
+The file structure for the project is set within the scripts, the location of the output data is printed to stdout at the end of each script.
 
 ## Clone Repo
 Clone this repo to desired project directory.
@@ -162,20 +161,27 @@ accession_list_file="02_data/reference/virome_accession_list.acc"
 bash "01_source/get_virome_ref.sh" \
     $accession_list_file
 ```
+
+Clean the annotation file, removing unnecessary header lines. This is required to ensure that the conversion to gtf file format runs cleanly.
+```bash
+annotation_files_dir="02_data/reference/virome_ref/downloads/annotation_files"
+
+bash "01_source/clean_annotation_files.sh" \
+    $annotation_files_dir
+```
+
 Some records will include a GFF3 file to accompany the sequence file, but there won't be any features within the genome. These records will be ignored and not compiled into the reference database.
 
 ## 3.2 - Convert GFF3 files
 Run annotation conversion script to convert the GFF3 format to GTF2.2 (see http://mblab.wustl.edu/GTF22.html).
 In addition, handle the annotation of circular genomes which have features that overrun the length of the linearly-represented geneome sequence.
 ```bash
-accession_list="02_data/reference/virome_ref/virome_accession_list.acc"
-annotation_file="02_data/reference/virome_ref/virome_annotation.gff3"
-sequence_file="02_data/reference/virome_ref/virome_sequences.fna"
+annotation_files_dir="02_data/reference/virome_ref/downloads/annotation_files"
+sequence_files_dir="02_data/reference/virome_ref/downloads/sequence_files"
 
 bash "01_source/convert_viral_annotation.sh" \
-    $accession_list \
-    $annotation_file \
-    $sequence_file
+    $annotation_files_dir \
+    $sequence_files_dir
 ```
 
 ## 3.3 - Summarize Viral Database
@@ -246,7 +252,6 @@ human_tx_counts_file="02_data/processed/cleaned_human_tx_counts.rds"
 viral_tx_counts_file="02_data/processed/cleaned_viral_tx_counts.rds"
 
 RScript "01_source/prepare_data.r"
-
 ```
 
 ## Run Analysis and Create Figures
