@@ -1,4 +1,4 @@
-# UCDSS 2022 - RNAseq Analysis of Human Virome in Stroke
+# Metagenomic Analysis of Blood Virome in Ischemic Stroke
 This repo outlines the bioinformatics workflow used to characterize the human blood virome in patients with ischemic stroke using RNAseq data and a novel approach to alignment of viral transcripts using STAR aligner and an expansive database of reference viral genomes.
 
 An overview of the process is as follows:
